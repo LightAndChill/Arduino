@@ -3,6 +3,7 @@
 #include <BridgeClient.h>
 
 // Pins
+#define pin_LED_Ready 13
 #define pin_LED_Blue  11
 #define pin_LED_Red   10
 #define pin_LED_Green 9
@@ -25,7 +26,9 @@ int r = 255;
 int g = 0;
 int b = 0;
 int LED = LOW;
-int mode = OFF;
+int mode = RAINBOW;
+int limit = 20;
+int limitOld = 20;
 BridgeServer server;
 
 void setup()
@@ -33,12 +36,15 @@ void setup()
   pinMode(pin_LED_Blue,  OUTPUT);
   pinMode(pin_LED_Red,   OUTPUT);
   pinMode(pin_LED_Green, OUTPUT);
+  pinMode(pin_LED_Ready, OUTPUT);
 
-  Serial.begin(9600);
+  //Serial.begin(9600);
   Bridge.begin();
 
   server.listenOnLocalhost();
   server.begin();
+
+  digitalWrite(pin_LED_Ready, HIGH);
 }
 
 void loop()
@@ -51,6 +57,14 @@ void loop()
     client.stop();
   }
 
+  limit = analogRead(A1) * 0.04;
+
+  if (limitOld != limit)
+  {
+    //Serial.println(limit);
+    limitOld = limit;
+  }
+  
   processMode();
 
   delay(2);
@@ -60,10 +74,6 @@ void processCommand(BridgeClient client)
 {
   String command = client.readStringUntil('/');
   command.trim();
-
-  Serial.print("'");
-  Serial.print(command);
-  Serial.println("'");
 
   if (command == "rainbow")
   {
@@ -115,7 +125,7 @@ void getMic()
 {
   int valueMic = analogRead(A0);
   
-  if (valueMic > 20)
+  if (valueMic > limit)
   {
     LED = HIGH;
   }
