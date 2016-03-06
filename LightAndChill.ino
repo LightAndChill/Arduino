@@ -17,19 +17,33 @@
 #define GREEN_MINUS 5
 
 // Modes
-#define RAINBOW 1
-#define OFF 2
+#define MUSIC1 1
+#define MUSIC2 2
+#define RAINBOW 5
+#define OFF 10
 
-// Globales variables
+#define DEBUG false
+
+/////////////// Globales variables ///////////////
+
+// Colors
+int red   = 255;
+int green = 0;
+int blue  = 0;
+
 char state = BLUE_PLUS;
-int r = 255;
-int g = 0;
-int b = 0;
 int LED = LOW;
-int mode = RAINBOW;
+int mode = MUSIC2;
+
+// Vars
 int limit = 20;
-int limitOld = 20;
+int step = 1;
+int interval = 2;
+int value = 0;
+
 BridgeServer server;
+
+/////////////// BASE ///////////////
 
 void setup()
 {
@@ -38,7 +52,7 @@ void setup()
   pinMode(pin_LED_Green, OUTPUT);
   pinMode(pin_LED_Ready, OUTPUT);
 
-  //Serial.begin(9600);
+  Serial.begin(9600);
   Bridge.begin();
 
   server.listenOnLocalhost();
@@ -47,33 +61,41 @@ void setup()
   digitalWrite(pin_LED_Ready, HIGH);
 }
 
+// ----------------------------------
+
 void loop()
+{
+  getLimit();
+  
+  processCommand();
+  processMode();
+
+  delay(interval);
+}
+
+/////////////// PROCESS ///////////////
+
+void processCommand()
 {
   BridgeClient client = server.accept();
 
-  if (client)
+  if (!client)
   {
-    processCommand(client);
-    client.stop();
-  }
-
-  limit = analogRead(A1) * 0.04;
-
-  if (limitOld != limit)
-  {
-    //Serial.println(limit);
-    limitOld = limit;
+    return;
   }
   
-  processMode();
-
-  delay(2);
-}
-
-void processCommand(BridgeClient client)
-{
   String command = client.readStringUntil('/');
   command.trim();
+
+  if (command == "music1")
+  {
+    mode = MUSIC1;
+  }
+
+  if (command == "music2")
+  {
+    mode = MUSIC2;
+  }
 
   if (command == "rainbow")
   {
@@ -84,12 +106,22 @@ void processCommand(BridgeClient client)
   {
     mode = OFF;
   }
+
+  client.stop();
 }
+
+// ----------------------------------
 
 void processMode()
 {
   switch (mode)
   {
+    case MUSIC1:
+      music1();
+      break;
+    case MUSIC2:
+      music2();
+      break;
     case RAINBOW:
       rainbow();
       break;
@@ -100,32 +132,63 @@ void processMode()
   }
 }
 
-void rainbow()
+/////////////// MODES ///////////////
+
+void music1()
 {
-  getMic();
+  //getMic();
+  getSerial();
+  
   calculColor();
 
   if (LED == HIGH)
   {
-    
-    setColor(r, g, b);
+    setColor(red, green, blue);
   }
   else
   {
-    setColor(0, 0, 0);
+    off();
   }
 }
+
+// ----------------------------------
+
+void music2()
+{
+  interval = 50; // TODO: move this shit
+  
+  if (Serial.available() > 0)
+  {
+    step = Serial.read() + 1;
+    //state = map(value, 0, 255, 0, 5);
+  }
+
+  calculColor();
+  setColor(red, green, blue);
+}
+
+// ----------------------------------
+
+void rainbow()
+{
+  calculColor();
+  setColor(red, green, blue);
+}
+
+// ----------------------------------
 
 void off()
 {
   setColor(0, 0, 0);
 }
 
+/////////////// DATAS ///////////////
+
 void getMic()
 {
-  int valueMic = analogRead(A0);
+  int value = analogRead(A0);
   
-  if (valueMic > limit)
+  if (value > limit)
   {
     LED = HIGH;
   }
@@ -135,18 +198,63 @@ void getMic()
   }
 }
 
-void setColor(char red, char green, char blue)
+// ----------------------------------
+
+void getSerial()
 {
-  analogWrite(pin_LED_Red,   red);
-  analogWrite(pin_LED_Green, green);
-  analogWrite(pin_LED_Blue,  blue);
+  if (Serial.available() > 0)
+  {
+    value = Serial.read();
+  }
   
-  /*Serial.print((int)r);
-  Serial.print(" ");
-  Serial.print((int)g);
-  Serial.print(" ");
-  Serial.println((int)b);*/
+  if (value > limit)
+  {
+    LED = HIGH;
+  }
+  else
+  {
+    LED = LOW;
+  }
 }
+
+// ----------------------------------
+
+void getLimit()
+{
+  //limit = analogRead(A1) * 0.04;
+  //limit = analogRead(A1) / 4;
+  limit = map(analogRead(A1), 0, 1023, -10, 255);
+  
+  //Serial.println(limit);
+}
+
+/////////////// UTILS ///////////////
+
+void setColor(int _red, int _green, int _blue)
+{
+  if (_red   > 255) _red   = 255;
+  if (_green > 255) _green = 255;
+  if (_blue  > 255) _blue  = 255;
+  
+  if (_red   < 0) _red   = 0;
+  if (_green < 0) _green = 0;
+  if (_blue  < 0) _blue  = 0;
+  
+  analogWrite(pin_LED_Red,   _red);
+  analogWrite(pin_LED_Green, _green);
+  analogWrite(pin_LED_Blue,  _blue);
+
+  if (DEBUG)
+  {
+    Serial.print((int)_red);
+    Serial.print(" ");
+    Serial.print((int)_green);
+    Serial.print(" ");
+    Serial.println((int)_blue);
+  }
+}
+
+// ----------------------------------
 
 void calculColor()
 {
@@ -154,54 +262,60 @@ void calculColor()
   {
     case BLUE_PLUS:
     {
-      b++;
-      if (b == 255)
+      blue += step;
+      if (blue >= 255)
       {
+        blue = 255;
         state = RED_MINUS;
       }
       break;
     }
     case RED_MINUS:
     {
-      r--;
-      if (r == 0)
+      red -= step;
+      if (red <= 0)
       {
+        red = 0;
         state = GREEN_PLUS;
       }
       break;
     }
     case GREEN_PLUS:
     {
-      g++;
-      if (g == 255)
+      green += step;
+      if (green >= 255)
       {
+        green = 255;
         state = BLUE_MINUS;
       }
       break;
     }
     case BLUE_MINUS:
     {
-      b--;
-      if (b == 0)
+      blue -= step;
+      if (blue <= 0)
       {
+        blue = 0;
         state = RED_PLUS;
       }
       break;
     }
     case RED_PLUS:
     {
-      r++;
-      if (r == 255)
+      red += step;
+      if (red >= 255)
       {
+        red = 255;
         state = GREEN_MINUS;
       }
       break;
     }
     case GREEN_MINUS:
     {
-      g--;
-      if (g == 0)
+      green -= step;
+      if (green <= 0)
       {
+        green = 0;
         state = BLUE_PLUS;
       }
       break;
