@@ -4,9 +4,9 @@
 
 // Pins
 #define pin_LED_Ready 13
-#define pin_LED_Blue  11
+#define pin_LED_Blue  9
 #define pin_LED_Red   10
-#define pin_LED_Green 9
+#define pin_LED_Green 11
 
 // Colors loop
 #define BLUE_PLUS 0
@@ -20,6 +20,7 @@
 #define MUSIC1 1
 #define MUSIC2 2
 #define RAINBOW 5
+#define SCENARIO 6
 #define OFF 10
 
 #define DEBUG false
@@ -33,7 +34,7 @@ int blue  = 0;
 
 char state = BLUE_PLUS;
 int LED = LOW;
-int mode = MUSIC2;
+int mode = SCENARIO;
 
 // Vars
 int limit = 20;
@@ -125,6 +126,9 @@ void processMode()
     case RAINBOW:
       rainbow();
       break;
+    case SCENARIO:
+      scenario();
+      break;
     case OFF:
     default:
       off();
@@ -173,6 +177,31 @@ void rainbow()
 {
   calculColor();
   setColor(red, green, blue);
+}
+
+// ----------------------------------
+
+int scenarioIndex = 0;
+//String scenarioData = "2#255,0,0,200|0,0,255,200"; // Police
+String scenarioData = "3#0,0,255,500|255,255,255,500|255,0,0,500"; // France
+
+void scenario()
+{
+  int count   = getValue(scenarioData, '#', 0).toInt();
+  String data = getValue(scenarioData, '#', 1);
+  
+  String scene = getValue(data, '|', scenarioIndex);
+  
+  red      = getValue(scene, ',', 0).toInt();
+  green    = getValue(scene, ',', 1).toInt();
+  blue     = getValue(scene, ',', 2).toInt();
+  interval = getValue(scene, ',', 3).toInt();
+
+  setColor(red, green, blue);
+
+  scenarioIndex++;
+
+  if (scenarioIndex >= count) scenarioIndex = 0;
 }
 
 // ----------------------------------
@@ -321,4 +350,25 @@ void calculColor()
       break;
     }
   }
+}
+
+// ----------------------------------
+
+String getValue(String data, char separator, int index)
+{
+  int found = 0;
+  int strIndex[] = {0, -1};
+  int maxIndex = data.length() - 1;
+  
+  for (int i = 0; i <= maxIndex && found <= index; i++)
+  {
+    if (data.charAt(i) == separator || i == maxIndex)
+    {
+      found++;
+      strIndex[0] = strIndex[1] + 1;
+      strIndex[1] = (i == maxIndex) ? i + 1 : i;
+    }
+  }
+  
+  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
