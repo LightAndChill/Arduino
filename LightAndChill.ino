@@ -21,6 +21,7 @@
 #define MUSIC2 2
 #define RAINBOW 5
 #define SCENARIO 6
+#define COLOR 7
 #define OFF 10
 
 #define DEBUG false
@@ -34,7 +35,7 @@ int blue  = 0;
 
 char state = BLUE_PLUS;
 int LED = LOW;
-int mode = SCENARIO;
+int mode = RAINBOW;
 
 // Vars
 int limit = 20;
@@ -88,6 +89,14 @@ void processCommand()
   String command = client.readStringUntil('/');
   command.trim();
 
+  if (command == "color")
+  {
+    red   = client.readStringUntil('/').toInt();
+    green = client.readStringUntil('/').toInt();
+    blue  = client.readStringUntil('/').toInt();
+    mode = COLOR;
+  }
+
   if (command == "music1")
   {
     mode = MUSIC1;
@@ -101,6 +110,11 @@ void processCommand()
   if (command == "rainbow")
   {
     mode = RAINBOW;
+  }
+
+  if (command == "scenario")
+  {
+    mode = SCENARIO;
   }
 
   if (command == "off")
@@ -117,6 +131,9 @@ void processMode()
 {
   switch (mode)
   {
+    case COLOR:
+      color();
+      break;
     case MUSIC1:
       music1();
       break;
@@ -138,10 +155,15 @@ void processMode()
 
 /////////////// MODES ///////////////
 
+void color()
+{
+  setColor(red, green, blue);
+}
+
 void music1()
 {
-  //getMic();
-  getSerial();
+  getMic();
+  //getSerial();
   
   calculColor();
 
@@ -159,7 +181,7 @@ void music1()
 
 void music2()
 {
-  interval = 50; // TODO: move this shit
+  interval = 50;
   
   if (Serial.available() > 0)
   {
@@ -175,6 +197,7 @@ void music2()
 
 void rainbow()
 {
+  interval = 2;
   calculColor();
   setColor(red, green, blue);
 }
@@ -216,6 +239,9 @@ void off()
 void getMic()
 {
   int value = analogRead(A0);
+
+  //Serial.print(" A0: ");
+  //Serial.println(value);
   
   if (value > limit)
   {
@@ -252,9 +278,11 @@ void getLimit()
 {
   //limit = analogRead(A1) * 0.04;
   //limit = analogRead(A1) / 4;
+  //limit = analogRead(A1);
   limit = map(analogRead(A1), 0, 1023, -10, 255);
-  
-  //Serial.println(limit);
+
+  //Serial.print("A1: ");
+  //Serial.print(limit);
 }
 
 /////////////// UTILS ///////////////
